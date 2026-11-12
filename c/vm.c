@@ -28,9 +28,19 @@
 
 VM vm; // [one]
 //> Calls and Functions clock-native
-static Value clockNative(int argCount, Value* args) {
-  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+static bool clockNative(int argCount, Value* args) {
+    Value CPUTimeFormula = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);// cpu time calculation
+    args[-1] = CPUTimeFormula;// storing calculation in VM stack
+    return true;// native function calculation executed, returns success bool
 }
+static bool NativeError(int argCount, Value* args) {// Native Error function testing
+    ObjString* errorMessage =copyString("Error Message", strlen("Error Message"));
+    args[-1] = OBJ_VAL(errorMessage);
+    //returning false to test failed native function
+    return false;// tells VM the native fcn failed
+}
+
+
 //< Calls and Functions clock-native
 //> reset-stack
 static void resetStack() {
@@ -311,11 +321,17 @@ static bool callValue(Value callee, int argCount) {
         int fcncalledFromVM = -argCount - 1;// native fcn offset location
         int nativeObject = ((ObjNative*)AS_OBJ(vm.stack[vm.stackTop + fcncalledFromVM]))->arity;// expected number of args
         if(nativeObject == argCount){// if number of args passed and the number of args expected are the same execute native fcn
-            Value result = native(argCount, (vm.stack + vm.stackTop) - argCount);// execution of native fcn
+            bool result = native(argCount, (vm.stack + vm.stackTop) - argCount);// execution of native fcn, tells success or fail of such execution due to error
+            if(result == true){// if execution succeeded with no errors
             //- using first arg position passed by native fcn
-            vm.stackTop -= argCount + 1;//removes fcn and args
-            push(result);// pushed to stack
+            vm.stackTop -= argCount;//removes args
             return true;
+            }
+            else if(result == false){// if error, display runntime error
+                Value NFerrorMessage = vm.stack[vm.stackTop + fcncalledFromVM];
+                runtimeError("%s", AS_STRING(NFerrorMessage)->Chars);
+                return false;
+            }
 
         }
         else{//else error if args expected and args passed are not the same
